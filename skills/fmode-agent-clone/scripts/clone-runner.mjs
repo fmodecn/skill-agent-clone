@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-#!/usr/bin/env node
 /**
  * fmode-agent-clone runner — 数字生命克隆：同步/恢复/建仓
  * 零依赖（Node ≥18）。凭据 4 级解析，密钥本体永不入仓。
