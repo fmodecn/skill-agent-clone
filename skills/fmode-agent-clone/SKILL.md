@@ -27,9 +27,10 @@ node <skill_dir>/scripts/clone-runner.mjs sync --name yuyang --level L1,L2
 node <skill_dir>/scripts/clone-runner.mjs restore --repo <url> --into /opt/data
 ```
 
-## 凭据（4 级解析）
+## 凭据（第0级审计 + 4 级解析）
 
-`FMODE_GIT_TOKEN` → `~/.fmode/config.json`(gitToken/gitUser) → 项目 .fmode → git credential helper。**零密钥入库。**
+- 第0级：**sessionToken 无法自举 git token**（Gogs API 不识别网页 session，也无签发端点）→ git token 需一次性初始化：`curl -u "user:pass" -X POST https://git.fmode.cn/api/v1/users/<user>/tokens -d '{"name":"agent-clone"}'`（详见 README）。
+- 第1-4级：`FMODE_GIT_TOKEN` → `~/.fmode/config.json`(gitToken/gitUser) → 项目 .fmode → git credential helper。**零密钥入库。**
 
 ## 详细文档
 

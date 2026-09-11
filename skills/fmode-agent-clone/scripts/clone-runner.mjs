@@ -14,7 +14,10 @@ import { execSync } from 'child_process';
 
 const HOME = os.homedir();
 
-/** 4 级凭据解析: env → ~/.fmode/config.json → ./.fmode/config.json → git credential helper */
+/** 5 级凭据解析（第0级为文档级自举说明）:
+ * 第0级: sessionToken —— ⚠️ Gogs API 不接受 sessionToken（网页 cookie i_like_gogs 仅网页会话有效），
+ *        且 Gogs 无"sessionToken 换 git token"的签发端点 → git token 必须一次性初始化（见 README）。
+ * 第1-4级: env → ~/.fmode/config.json → ./.fmode/config.json → git credential helper */
 export function resolveGit() {
   const out = { user: null, token: null, apiBase: 'https://git.fmode.cn/api/v1' };
   if (process.env.FMODE_GIT_TOKEN) { out.token = process.env.FMODE_GIT_TOKEN; }
@@ -50,10 +53,16 @@ function sh(cmd, cwd) {
 
 function ensureRepo(name, g) {
   const url = `${g.apiBase}/admin/users/${g.user}/repos`;
+  if (!g.token) {
+    console.error('git token 缺失——Gogs API 不接受 sessionToken 自举，请先完成一次性初始化（见 README「凭据」章节）：');
+    console.error(`  curl -u "<user>:<password>" -X POST "${g.apiBase.replace('/api/v1', '')}/api/v1/users/<user>/tokens" -H "Content-Type: application/json" -d '{"name":"agent-clone"}'`);
+    return false;
+  }
   try {
-    const r = sh(`curl -s --max-time 20 -X POST -u "${g.user === 'fmode' ? 'fmode:fmgo' : 'fmode:fmgo'}" -H "Content-Type: application/json" -d '{"name":"${name}","private":true}' "${url}"`);
+    const r = sh(`curl -s --max-time 20 -X POST -H "Authorization: token ${g.token}" -H "Content-Type: application/json" -d '{"name":"${name}","private":true}' "${url}"`);
     return /"name"\s*:\s*"/.test(r) || /already/i.test(r);
-  } catch { return false; }
+  } catch { return false;
+  }
 }
 
 function main() {
@@ -89,7 +98,11 @@ function main() {
     if (dry) { console.log('[dry] 同步项:', manifest.length); return; }
     // 4) commit+push
     try { sh(`git add -A && git -c user.name="${g.user}" -c user.email="${g.user}@fmode.cn" commit -m "clone sync ${new Date().toISOString().slice(0,16)}"`, work); } catch {}
-    try { ensureRepo(repoName, g); sh(`git push -u origin main`, work); console.log('✅ 已同步', manifest.length, '项 →', repoName); }
+    if (!g.token) {
+      console.error('push 失败: git token 缺失（FMODE_GIT_TOKEN 或 ~/.fmode/config.json 的 gitToken）。Gogs 不支持 sessionToken 自举，请先一次性初始化 token（见 README「凭据」章节）。');
+      return;
+    }
+    try { if (ensureRepo(repoName, g)) { sh(`git push -u origin main`, work); console.log('✅ 已同步', manifest.length, '项 →', repoName); } }
     catch (e) { console.error('push 失败:', String(e).slice(0, 200)); }
     return;
   }

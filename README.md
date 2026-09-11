@@ -51,7 +51,23 @@ node ... sync --name yuyang --level L1,L2
 node ... restore --repo https://git.fmode.cn/<user>/agent-yuyang.git --into /opt/data
 ```
 
-## 凭据（4 级解析，同 skill-storage 链）
+## 凭据（第0级审计结论 + 4 级解析）
+
+**第0级审计结论：git token 无法由 sessionToken 自举。** 经实测（2026-09）：
+- Gogs 网页 session（cookie `i_like_gogs`）仅对网页 UI 有效，Gogs API 层不识别；
+- Gogs API 无"sessionToken → git token"签发端点（token 创建本身要求 Basic Auth 或已有 token）。
+
+因此 **git token 需要一次性初始化**（一条命令，之后永久使用）：
+
+```bash
+# 一次性创建 git token（用网页登录密码，非 sessionToken）
+curl -u "<你的用户名>:<你的密码>" -X POST \
+  https://git.fmode.cn/api/v1/users/<你的用户名>/tokens \
+  -H "Content-Type: application/json" -d '{"name":"agent-clone"}'
+# → 响应里的 sha1 即 git token，写入 ~/.fmode/config.json 的 gitToken 字段
+```
+
+初始化后，运行器按以下 4 级链解析（第1级起与 skill-storage 同构）：
 
 1. `FMODE_GIT_TOKEN` 环境变量
 2. `~/.fmode/config.json` → `gitToken` / `gitUser`
@@ -59,6 +75,7 @@ node ... restore --repo https://git.fmode.cn/<user>/agent-yuyang.git --into /opt
 4. 平台凭据链（git credential helper / ssh key）
 
 > **仓库里零密钥**：token/密码永远不进仓；`credentials-map.md` 只写"哪个密钥存在哪"。
+> token 缺失时运行器明确报错并给出初始化命令，不再使用任何硬编码凭据。
 
 ## License
 
