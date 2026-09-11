@@ -1,0 +1,9 @@
+{
+  "name": "fmode-agent-clone",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/fmodecn/skill-agent-clone.git"
+  }
+}
